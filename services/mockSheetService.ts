@@ -2,8 +2,8 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// Ensure this URL matches your latest deployment
-const API_URL = 'https://script.google.com/macros/s/AKfycbxaNNnvuGfKuZRm86VDQpNFxKzhsPlY8T-_QklFMU5BJz0AMJSzGFPg3tgCncH-M1jd/exec';
+// UPDATED URL per permintaan user
+const API_URL = 'https://script.google.com/macros/s/AKfycbwxYp_7AdQpu7jrngc_uXB5ZYSdb43xTO3MKzVXZAfI-dLSJidrdM882hWjacRBBKA/exec';
 
 // --- MOCK DATA (FALLBACK) ---
 const MOCK_VENDORS: Vendor[] = [
@@ -87,33 +87,33 @@ class SheetService {
   private projects: Project[] = [];
   private vendors: Vendor[] = []; 
   private isInitialized = false;
-  private useMock = false;
+  
+  // Set default ke FALSE agar selalu mencoba connect ke API dulu
+  private useMock = false; 
 
   async initializeConnection(): Promise<{ success: boolean; message: string }> {
     try {
         console.log("Connecting to Google Sheet Database...");
-        // Try simple fetch to check connectivity
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
         
-        try {
-            await fetch(`${API_URL}?action=ping`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            await this.fetchAllProjects();
-            await this.fetchUsers();
-            this.isInitialized = true;
-            return { success: true, message: 'Connected to Database' };
-        } catch (netErr) {
-            clearTimeout(timeoutId);
-            throw new Error("Network timeout or error");
-        }
-    } catch (error) {
-        console.warn("Connection Failed, switching to Offline/Demo Mode.");
-        this.useMock = true;
-        this.vendors = MOCK_VENDORS;
-        this.projects = MOCK_PROJECTS;
+        // Coba fetch data projects. Jika berhasil, berarti online.
+        await this.fetchAllProjects();
+        await this.fetchUsers();
+        
         this.isInitialized = true;
-        return { success: true, message: 'Demo / Offline Mode Active' };
+        this.useMock = false; // Pastikan mock false jika berhasil fetch
+        return { success: true, message: 'Connected to Database' };
+
+    } catch (error) {
+        console.warn("Initial Connection Failed, but keeping Online Mode active for retries.");
+        // Kita TIDAK meng-set useMock = true secara permanen di sini.
+        // Biarkan user mencoba submit data nanti, siapa tahu koneksi pulih.
+        
+        // Load mock data hanya untuk tampilan awal agar tidak kosong
+        if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
+        if (this.vendors.length === 0) this.vendors = MOCK_VENDORS;
+        
+        this.isInitialized = true;
+        return { success: false, message: 'Connection Unstable - Retrying in background' };
     }
   }
 
@@ -144,6 +144,7 @@ class SheetService {
 
         const response = await fetch(`${API_URL}?action=upload`, {
             method: 'POST',
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
@@ -155,6 +156,7 @@ class SheetService {
             return `https://drive.google.com/file/d/placeholder/${file.name}`;
         }
     } catch (e) {
+        console.error("Upload Error:", e);
         throw new Error("Gagal mengupload file ke Google Drive.");
     }
   }
@@ -162,16 +164,16 @@ class SheetService {
   // --- AUTHENTICATION METHODS ---
 
   async login(id: string, password: string): Promise<{ success: boolean; user?: Vendor; message?: string }> {
-      // Priority Check for Mock/Demo Login
-      if (this.useMock || (id === 'admin' && password === 'admin') || (id === 'v001' && password === 'admin')) {
-          const user = this.vendors.find(v => v.id === id);
-          if (user) return { success: true, user };
-          if (id === 'admin') return { success: true, user: MOCK_VENDORS[0] }; // Fallback
+      // Cek Mock Data dulu (Admin/Dev Backdoor)
+      if ((id === 'admin' && password === 'admin') || (id === 'v001' && password === 'admin')) {
+          const user = MOCK_VENDORS.find(v => v.id === id) || MOCK_VENDORS[0];
+          return { success: true, user };
       }
 
       try {
           const response = await fetch(`${API_URL}?action=login`, {
               method: 'POST',
+              redirect: 'follow',
               headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify({ id, password })
           });
@@ -182,7 +184,7 @@ class SheetService {
               return { success: false, message: result.message };
           }
       } catch (e) {
-          // Fallback to mock if network fails during login
+          console.error("Login Network Error:", e);
           const mockUser = MOCK_VENDORS.find(v => v.id === id);
           if (mockUser) return { success: true, user: mockUser };
           return { success: false, message: "Login Error: Network issue and User not found in cache" };
@@ -190,9 +192,8 @@ class SheetService {
   }
 
   async fetchUsers(): Promise<Vendor[]> {
-      if (this.useMock) return this.vendors;
       try {
-          const response = await fetch(`${API_URL}?action=getUsers`);
+          const response = await fetch(`${API_URL}?action=getUsers`, { redirect: 'follow' });
           const data = await response.json();
           if (Array.isArray(data)) {
               this.vendors = data;
@@ -210,32 +211,37 @@ class SheetService {
 
   async addUser(user: Vendor & { password?: string }): Promise<void> {
       this.vendors.push(user);
-      if (!this.useMock) {
+      try {
           await fetch(`${API_URL}?action=saveUser`, {
               method: 'POST',
+              redirect: 'follow',
               headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify(user)
           });
-      }
+      } catch(e) { console.error("Add User Error", e); }
   }
 
   async deleteUser(userId: string): Promise<void> {
       this.vendors = this.vendors.filter(v => v.id !== userId);
-      if (!this.useMock) {
+      try {
           await fetch(`${API_URL}?action=deleteUser`, {
               method: 'POST',
+              redirect: 'follow',
               headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify({ id: userId })
           });
-      }
+      } catch(e) { console.error("Delete User Error", e); }
   }
 
   // --- PROJECT METHODS ---
 
   private async fetchAllProjects(): Promise<Project[]> {
-      if (this.useMock) return this.projects;
       try {
-          const response = await fetch(`${API_URL}?action=read`, { method: 'GET' });
+          const response = await fetch(`${API_URL}?action=read`, { 
+              method: 'GET',
+              redirect: 'follow'
+          });
+          
           if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
           
           const data = await response.json();
@@ -246,24 +252,33 @@ class SheetService {
               return [];
           }
       } catch (e) {
-          console.warn("Fetch Projects Failed, using Mock Data");
-          this.useMock = true; // Switch to mock mode automatically on failure
-          this.projects = MOCK_PROJECTS;
+          console.warn("Fetch Projects Failed, showing cached/mock data.", e);
+          // Jangan set useMock=true disini, biarkan user mencoba refresh nanti
+          if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
           return this.projects;
       }
   }
 
   private async sendData(project: Project): Promise<void> {
-      if (this.useMock) return; // Don't send to backend in mock mode
+      // HAPUS PENGECEKAN MOCK DISINI AGAR SELALU MENCOBA KIRIM KE GOOGLE
+      // if (this.useMock) return; 
+
+      console.log("Attempting to save data to Google Sheet...", project.id);
+      
       try {
           const response = await fetch(`${API_URL}?action=save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow', // PENTING UNTUK GAS
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // PENTING UNTUK MENGHINDARI CORS PREFLIGHT
             body: JSON.stringify(project)
           });
-          await response.json();
+          
+          const result = await response.json();
+          console.log("Save Result:", result);
       } catch (e) {
-          console.error("[Google Sheet] Save Error:", e);
+          console.error("[Google Sheet] Save Error Fatal:", e);
+          // Optional: Tampilkan alert kepada user bahwa simpan ke cloud gagal, tapi lokal berhasil
+          // alert("Data tersimpan di Browser, namun GAGAL sinkron ke Google Sheet. Cek koneksi internet.");
       }
   }
 
