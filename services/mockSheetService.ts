@@ -2,14 +2,15 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// PENTING: Pastikan URL ini adalah versi 'exec' dari Deployment TERBARU Anda.
+// PENTING: GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT GOOGLE SCRIPT TERBARU ANDA
 const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
 
 // --- MOCK DATA (FALLBACK) ---
 const MOCK_VENDORS: Vendor[] = [
     { id: 'admin', name: 'Administrator', email: 'admin@apjatel.co.id' },
     { id: 'v001', name: 'PT. Vendor Jaya Abadi', email: 'info@jayaabadi.com' },
-    { id: 'v002', name: 'PT. Sinergi Optik', email: 'contact@sinergioptik.id' }
+    { id: 'v002', name: 'PT. Sinergi Optik', email: 'contact@sinergioptik.id' },
+    { id: 'ant', name: 'PT. Ant (Vendor)', email: 'ant@vendor.com' } // Added based on your screenshot data
 ];
 
 const MOCK_PROJECTS: Project[] = [
@@ -202,20 +203,46 @@ class SheetService {
           const rawData = await response.json();
           
           if (Array.isArray(rawData)) {
-              // --- DATA SANITIZATION LOGIC ---
+              // --- AGGRESSIVE DATA RECOVERY & SANITIZATION ---
               this.projects = rawData.map((item: any) => {
-                 // Fix VendorId corruption (seen in screenshot)
                  let safeVendorId = item.vendorId;
-                 if (typeof safeVendorId === 'string' && (safeVendorId.startsWith('{') || safeVendorId.length > 50)) {
-                     // If vendorId looks like JSON, it's corrupted. Try to recover or set default.
-                     // Often the real vendorId is lost, so we default to something safe or try to extract if hidden.
-                     // For now, clean it so it doesn't break UI.
-                     safeVendorId = 'unknown_vendor'; 
+                 let recoveredData: any = {};
+
+                 // LOGIC: Check if vendorId contains JSON garbage
+                 if (typeof safeVendorId === 'string' && safeVendorId.trim().startsWith('{')) {
+                     try {
+                         // Attempt to PARSE the garbage to find the real gold inside
+                         const parsedGarbage = JSON.parse(safeVendorId);
+                         
+                         // If the parsed garbage has a 'vendorId' field, USE IT!
+                         if (parsedGarbage.vendorId) {
+                             safeVendorId = parsedGarbage.vendorId;
+                         } else {
+                             safeVendorId = 'unknown';
+                         }
+
+                         // Also recover other fields if missing in the main object but present in the JSON blob
+                         recoveredData = parsedGarbage;
+                     } catch (e) {
+                         console.error("Failed to recover corrupted data", e);
+                         safeVendorId = 'corrupted';
+                     }
+                 } else if (typeof safeVendorId === 'object' && safeVendorId !== null) {
+                     // If it somehow came as an object already
+                     if (safeVendorId.vendorId) safeVendorId = safeVendorId.vendorId;
+                 }
+
+                 // Final Cleanup: ensure it's a short string
+                 if (typeof safeVendorId !== 'string' || safeVendorId.length > 50) {
+                     safeVendorId = 'unknown';
                  }
 
                  return {
                      ...item,
-                     vendorId: safeVendorId || 'unknown_vendor',
+                     ...recoveredData, // Merge recovered data (e.g. name, location) if parent was empty
+                     vendorId: safeVendorId, // The clean ID (e.g. 'ant', 'v001')
+                     
+                     // Ensure arrays exist
                      workItems: Array.isArray(item.workItems) ? item.workItems : [],
                      operators: Array.isArray(item.operators) ? item.operators : [],
                      requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
@@ -259,6 +286,7 @@ class SheetService {
     if (vendorId === 'admin') {
       return freshData;
     }
+    // With data recovery, 'ant' === 'ant' should now match!
     return freshData.filter(p => p.vendorId === vendorId);
   }
 

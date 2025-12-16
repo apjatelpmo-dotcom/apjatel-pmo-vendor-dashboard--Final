@@ -52,10 +52,15 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
   };
 
   const getVendorName = (vendorId: string) => {
-    // Safety check: If vendorId is corrupted (JSON-like), return placeholder
-    if (!vendorId || vendorId.length > 50 || vendorId.includes('{')) {
-        return 'Unknown Vendor';
+    // Safety check 1: Null/Undefined
+    if (!vendorId) return 'Unknown';
+    
+    // Safety check 2: Too long or JSON-like (UI Protection)
+    if (vendorId.length > 30 || vendorId.includes('{') || vendorId.includes('"')) {
+        return 'Data Error'; 
     }
+    
+    // Normal lookup
     return vendors.find(v => v.id === vendorId)?.name || vendorId;
   };
 
