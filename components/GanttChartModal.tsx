@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, ScheduleItem } from '../types';
 import { X, Save, Edit2, Plus, Trash2, CalendarDays, ArrowRight, User, AlertTriangle, Calendar, CalendarClock, Timer, Link2, Download, Printer } from 'lucide-react';
 import { exportToCSV, printComponent } from '../services/exportService';
+import Toast, { ToastType } from './Toast';
 
 interface GanttChartModalProps {
   project: Project;
@@ -14,6 +15,7 @@ const GanttChartModal: React.FC<GanttChartModalProps> = ({ project, onClose, onU
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>(project.scheduleItems || []);
   const [isEditing, setIsEditing] = useState(false);
   const [timelineStart, setTimelineStart] = useState(new Date(project.startDate));
+  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
 
   // Form State for new item
   const [newItem, setNewItem] = useState<{
@@ -140,12 +142,17 @@ const GanttChartModal: React.FC<GanttChartModalProps> = ({ project, onClose, onU
   };
 
   const handleSave = () => {
+    setToast({ message: "Menyimpan schedule...", type: "loading" });
     const updatedProject = {
         ...project,
         scheduleItems: scheduleItems
     };
-    onUpdate(updatedProject);
-    setIsEditing(false);
+    
+    setTimeout(() => {
+        onUpdate(updatedProject);
+        setToast({ message: "Schedule berhasil disimpan!", type: "success" });
+        setIsEditing(false);
+    }, 500);
   };
 
   // Export Logic
@@ -167,6 +174,7 @@ const GanttChartModal: React.FC<GanttChartModalProps> = ({ project, onClose, onU
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative bg-white rounded-xl w-full max-w-[95vw] h-[90vh] shadow-2xl flex flex-col overflow-hidden">
         
@@ -212,7 +220,8 @@ const GanttChartModal: React.FC<GanttChartModalProps> = ({ project, onClose, onU
                  </button>
              </div>
         </div>
-
+        
+        {/* ... Rest of existing component ... */}
         {/* Project Constraints Dashboard */}
         <div className={`px-6 py-4 border-b flex flex-wrap items-center gap-y-4 gap-x-8 ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
             {/* Start Date */}

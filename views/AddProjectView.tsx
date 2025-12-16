@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Project, ProjectStatus, ProjectDocumentStatus, ProjectCategory, Vendor } from '../types';
 import { Save, X, FileText, Upload, Trash2, CloudUpload, CheckCircle2, Plus, Loader2, Users } from 'lucide-react';
 import { sheetService } from '../services/mockSheetService';
+import Toast, { ToastType } from '../components/Toast';
 
 interface AddProjectViewProps {
   currentUser: Vendor;
@@ -23,6 +24,9 @@ const REQUIRED_DOCS_LIST = [
 const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, onSave, onCancel }) => {
   const isAdmin = currentUser.id === 'admin';
   
+  // Toast State
+  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
+  
   const [formData, setFormData] = useState<Partial<Project>>({
     vendorAppointmentNumber: '',
     name: '',
@@ -38,7 +42,6 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
     relocationReason: ''
   });
 
-  // If admin, default to first vendor or empty
   const [selectedVendorId, setSelectedVendorId] = useState<string>(isAdmin ? (vendors[0]?.id || '') : currentUser.id);
 
   const [docsStatus, setDocsStatus] = useState<ProjectDocumentStatus[]>(
@@ -51,17 +54,19 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
     const file = e.target.files?.[0];
     if (file) {
         setUploadingIndex(index);
+        setToast({ message: `Mengupload ${file.name}...`, type: 'loading' });
+        
         try {
-            // Upload to Drive
             const driveUrl = await sheetService.uploadFile(file);
             
             const newDocs = [...docsStatus];
             newDocs[index].hasFile = true;
             newDocs[index].fileName = file.name;
-            newDocs[index].url = driveUrl; // Save URL
+            newDocs[index].url = driveUrl; 
             setDocsStatus(newDocs);
+            setToast({ message: "File berhasil diupload!", type: 'success' });
         } catch (error) {
-            alert("Gagal mengupload file. Silakan coba lagi.");
+            setToast({ message: "Gagal mengupload file. Cek koneksi.", type: 'error' });
         } finally {
             setUploadingIndex(null);
         }
@@ -97,21 +102,23 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
     setDocsStatus(newDocs);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (uploadingIndex !== null) {
-        alert("Harap tunggu hingga proses upload selesai.");
-        return;
-    }
+    if (uploadingIndex !== null) return;
 
     if (isAdmin && !selectedVendorId) {
-        alert("Silakan pilih Vendor Pelaksana.");
+        setToast({ message: "Silakan pilih Vendor Pelaksana.", type: 'error' });
         return;
     }
 
+    setToast({ message: "Menyimpan data project...", type: 'loading' });
+
+    // Generate Robust ID using Timestamp to prevent collision in Sheet
+    const uniqueId = `p${Date.now()}`;
+
     const newProject: Project = {
-        id: `p${Math.floor(Math.random() * 10000)}`,
-        vendorId: selectedVendorId, // Use selected ID
+        id: uniqueId,
+        vendorId: selectedVendorId,
         vendorAppointmentNumber: formData.vendorAppointmentNumber!,
         name: formData.name!,
         location: formData.location!,
@@ -121,8 +128,8 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
         spent: 0, 
         startDate: formData.startDate!,
         endDate: formData.endDate!,
-        remarks: formData.remarks!,
-        description: formData.description!,
+        remarks: formData.remarks || '',
+        description: formData.description || '',
         lengthMeter: Number(formData.lengthMeter) || 0,
         initiator: formData.initiator || '',
         relocationReason: formData.relocationReason || '',
@@ -133,7 +140,14 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
         operators: [],
         photos: []
     };
-    onSave(newProject);
+
+    try {
+        await onSave(newProject);
+        setToast({ message: "Project berhasil dibuat!", type: 'success' });
+        // Give time for user to see success message before closing/redirecting if handled by parent
+    } catch (error) {
+        setToast({ message: "Gagal menyimpan project.", type: 'error' });
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -142,7 +156,9 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-10">
+    <div className="max-w-4xl mx-auto space-y-8 pb-10 relative">
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        
         <div className="flex items-center justify-between border-b border-gray-200 pb-6">
             <div>
                 <h2 className="text-2xl font-bold text-gray-900">Registrasi Project Baru</h2>
@@ -154,7 +170,6 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-            {/* General Info & Timeline sections same as before (omitted for brevity, assume present) */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center gap-2">
                     <span className="w-1 h-6 bg-brand-500 rounded-full block"></span> Informasi Umum
@@ -278,7 +293,7 @@ const AddProjectView: React.FC<AddProjectViewProps> = ({ currentUser, vendors, o
                                             {uploadingIndex === idx ? (
                                                 <div className="flex flex-col items-center text-brand-600">
                                                     <Loader2 size={24} className="animate-spin mb-2" />
-                                                    <span className="text-xs font-medium">Uploading to Drive...</span>
+                                                    <span className="text-xs font-medium">Uploading...</span>
                                                 </div>
                                             ) : (
                                                 <>

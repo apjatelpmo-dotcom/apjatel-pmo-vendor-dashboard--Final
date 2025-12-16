@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Project, ProjectStatus, ProjectDocumentStatus } from '../types';
 import { X, Calendar, MapPin, Hash, FileText, Download, Edit2, Save, Trash2, Plus, CloudUpload, CheckCircle2, MessageSquare, Ruler, Info, CalendarClock, Loader2, ExternalLink } from 'lucide-react';
 import { sheetService } from '../services/mockSheetService';
+import Toast, { ToastType } from './Toast';
 
 interface ProjectDetailModalProps {
   project: Project;
@@ -14,6 +15,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
   const [isEditing, setIsEditing] = useState(false);
   const [editedProject, setEditedProject] = useState<Project>(project);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -32,11 +34,15 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
 
   const handleSave = () => {
     if (uploadingIndex !== null) {
-        alert("Harap tunggu proses upload selesai.");
+        setToast({ message: "Harap tunggu proses upload selesai.", type: "error" });
         return;
     }
+    setToast({ message: "Menyimpan perubahan...", type: "loading" });
     onUpdate(editedProject);
-    setIsEditing(false);
+    setTimeout(() => {
+         setToast({ message: "Berhasil disimpan!", type: "success" });
+         setIsEditing(false);
+    }, 500);
   };
 
   /* Document Logic with Drive Upload */
@@ -44,6 +50,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
     const file = e.target.files?.[0];
     if (file) {
         setUploadingIndex(index);
+        setToast({ message: `Mengupload ${file.name}...`, type: "loading" });
         try {
             const driveUrl = await sheetService.uploadFile(file);
             
@@ -53,8 +60,9 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
             newDocs[index].url = driveUrl;
             
             setEditedProject(prev => ({...prev, requiredDocuments: newDocs}));
+            setToast({ message: "Upload berhasil!", type: "success" });
         } catch (error) {
-            alert("Upload gagal.");
+            setToast({ message: "Upload gagal. Cek koneksi.", type: "error" });
         } finally {
             setUploadingIndex(null);
         }
@@ -90,6 +98,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
 
       <div className="relative bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">

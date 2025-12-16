@@ -2,8 +2,8 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// UPDATED URL per permintaan user
-const API_URL = 'https://script.google.com/macros/s/AKfycbwxYp_7AdQpu7jrngc_uXB5ZYSdb43xTO3MKzVXZAfI-dLSJidrdM882hWjacRBBKA/exec';
+// PENTING: GANTI URL INI DENGAN URL HASIL DEPLOYMENT TERBARU ANDA
+const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
 
 // --- MOCK DATA (FALLBACK) ---
 const MOCK_VENDORS: Vendor[] = [
@@ -55,31 +55,6 @@ const MOCK_PROJECTS: Project[] = [
                 jointSurveyStatus: JointSurveyStatus.SCHEDULED, jointSurveyDate: '2024-02-10', adminPOStatus: AdminPOStatus.PROCESSING, adminDocStatus: AdminDocStatus.SUBMITTED
             }
         ]
-    },
-    {
-        id: 'p002',
-        vendorId: 'v002',
-        vendorAppointmentNumber: 'SPK/025/II/2024',
-        name: 'Relokasi Utilitas Jl. Rasuna Said',
-        location: 'Jakarta Selatan',
-        status: ProjectStatus.PLANNING,
-        progress: 10,
-        budget: 200000000,
-        spent: 15000000,
-        startDate: '2024-03-01',
-        endDate: '2024-05-30',
-        remarks: 'Tahap survey bersama',
-        description: 'Relokasi pelebaran trotoar.',
-        lengthMeter: 1200,
-        initiator: 'Dinas Bina Marga',
-        relocationReason: 'Penataan Trotoar',
-        category: ProjectCategory.RELOCATION,
-        progressMeter: 0,
-        requiredDocuments: [
-            { name: 'Surat Perintah Relokasi', hasFile: true, fileName: 'Instruksi_Dinas.pdf', url: '#' }
-        ],
-        workItems: [],
-        operators: []
     }
 ];
 
@@ -88,32 +63,24 @@ class SheetService {
   private vendors: Vendor[] = []; 
   private isInitialized = false;
   
-  // Set default ke FALSE agar selalu mencoba connect ke API dulu
-  private useMock = false; 
-
   async initializeConnection(): Promise<{ success: boolean; message: string }> {
     try {
         console.log("Connecting to Google Sheet Database...");
-        
-        // Coba fetch data projects. Jika berhasil, berarti online.
         await this.fetchAllProjects();
         await this.fetchUsers();
         
         this.isInitialized = true;
-        this.useMock = false; // Pastikan mock false jika berhasil fetch
-        return { success: true, message: 'Connected to Database' };
+        return { success: true, message: 'Connected to Database (Online)' };
 
     } catch (error) {
-        console.warn("Initial Connection Failed, but keeping Online Mode active for retries.");
-        // Kita TIDAK meng-set useMock = true secara permanen di sini.
-        // Biarkan user mencoba submit data nanti, siapa tahu koneksi pulih.
+        console.warn("Connection Failed, using offline data.", error);
         
-        // Load mock data hanya untuk tampilan awal agar tidak kosong
+        // Load mock data agar tidak kosong saat offline
         if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
         if (this.vendors.length === 0) this.vendors = MOCK_VENDORS;
         
         this.isInitialized = true;
-        return { success: false, message: 'Connection Unstable - Retrying in background' };
+        return { success: false, message: 'Offline Mode (Connection Error)' };
     }
   }
 
@@ -127,24 +94,23 @@ class SheetService {
     });
   }
 
-  // --- FILE UPLOAD ---
+  // --- FILE UPLOAD (Updated for new GAS) ---
   async uploadFile(file: File): Promise<string> {
-    if (this.useMock) {
-        return new Promise(resolve => setTimeout(() => resolve(`https://mock-drive.com/${file.name}`), 1000));
-    }
-
     try {
         const base64Data = await this.fileToBase64(file);
+        // Hapus prefix data:image/png;base64, ...
         const content = base64Data.split(',')[1];
+        
         const payload = {
             data: content,
             filename: file.name,
             mimeType: file.type
         };
 
+        // Kirim request ke GAS dengan action=upload
         const response = await fetch(`${API_URL}?action=upload`, {
             method: 'POST',
-            redirect: 'follow',
+            redirect: 'follow', // Penting untuk GAS
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
@@ -153,7 +119,8 @@ class SheetService {
         if (result.success && result.url) {
             return result.url;
         } else {
-            return `https://drive.google.com/file/d/placeholder/${file.name}`;
+            console.warn("Upload failed from server:", result.message);
+            throw new Error(result.message || "Upload failed");
         }
     } catch (e) {
         console.error("Upload Error:", e);
@@ -161,15 +128,8 @@ class SheetService {
     }
   }
 
-  // --- AUTHENTICATION METHODS ---
-
+  // --- AUTHENTICATION ---
   async login(id: string, password: string): Promise<{ success: boolean; user?: Vendor; message?: string }> {
-      // Cek Mock Data dulu (Admin/Dev Backdoor)
-      if ((id === 'admin' && password === 'admin') || (id === 'v001' && password === 'admin')) {
-          const user = MOCK_VENDORS.find(v => v.id === id) || MOCK_VENDORS[0];
-          return { success: true, user };
-      }
-
       try {
           const response = await fetch(`${API_URL}?action=login`, {
               method: 'POST',
@@ -185,9 +145,11 @@ class SheetService {
           }
       } catch (e) {
           console.error("Login Network Error:", e);
-          const mockUser = MOCK_VENDORS.find(v => v.id === id);
-          if (mockUser) return { success: true, user: mockUser };
-          return { success: false, message: "Login Error: Network issue and User not found in cache" };
+          // Fallback ke Mock jika network error, khusus admin
+          if (id === 'admin' && password === 'admin') {
+             return { success: true, user: MOCK_VENDORS[0] };
+          }
+          return { success: false, message: "Network Error: Gagal menghubungi server." };
       }
   }
 
@@ -237,48 +199,65 @@ class SheetService {
 
   private async fetchAllProjects(): Promise<Project[]> {
       try {
-          const response = await fetch(`${API_URL}?action=read`, { 
+          // Tambahkan timestamp t untuk menghindari caching agresif browser
+          const response = await fetch(`${API_URL}?action=read&t=${Date.now()}`, { 
               method: 'GET',
               redirect: 'follow'
           });
           
           if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
           
-          const data = await response.json();
-          if (Array.isArray(data)) {
-              this.projects = data;
+          const rawData = await response.json();
+          
+          if (Array.isArray(rawData)) {
+              // Validasi dan normalisasi data dari Sheet
+              this.projects = rawData.map((item: any) => {
+                 return {
+                     ...item,
+                     // Pastikan array selalu ada (tidak undefined) untuk mencegah crash di UI
+                     workItems: Array.isArray(item.workItems) ? item.workItems : [],
+                     operators: Array.isArray(item.operators) ? item.operators : [],
+                     requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
+                     scheduleItems: Array.isArray(item.scheduleItems) ? item.scheduleItems : [],
+                     handholeAssignments: Array.isArray(item.handholeAssignments) ? item.handholeAssignments : [],
+                     abdFiles: Array.isArray(item.abdFiles) ? item.abdFiles : []
+                 } as Project;
+              });
+              
+              console.log("Projects Fetched successfully:", this.projects.length);
               return this.projects;
           } else {
               return [];
           }
       } catch (e) {
           console.warn("Fetch Projects Failed, showing cached/mock data.", e);
-          // Jangan set useMock=true disini, biarkan user mencoba refresh nanti
           if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
           return this.projects;
       }
   }
 
   private async sendData(project: Project): Promise<void> {
-      // HAPUS PENGECEKAN MOCK DISINI AGAR SELALU MENCOBA KIRIM KE GOOGLE
-      // if (this.useMock) return; 
-
-      console.log("Attempting to save data to Google Sheet...", project.id);
+      console.log("Sending project data...", project.id);
       
       try {
           const response = await fetch(`${API_URL}?action=save`, {
             method: 'POST',
-            redirect: 'follow', // PENTING UNTUK GAS
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // PENTING UNTUK MENGHINDARI CORS PREFLIGHT
-            body: JSON.stringify(project)
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+            // Kita kirim full object. Script GAS akan otomatis menyimpannya ke kolom json_data
+            body: JSON.stringify(project) 
           });
           
           const result = await response.json();
-          console.log("Save Result:", result);
+          if (result.success) {
+            console.log("Data successfully saved to cloud.", result);
+          } else {
+            console.error("Sheet Error:", result.message);
+            alert(`Gagal menyimpan: ${result.message}`);
+          }
       } catch (e) {
-          console.error("[Google Sheet] Save Error Fatal:", e);
-          // Optional: Tampilkan alert kepada user bahwa simpan ke cloud gagal, tapi lokal berhasil
-          // alert("Data tersimpan di Browser, namun GAGAL sinkron ke Google Sheet. Cek koneksi internet.");
+          console.error("Network/CORS Error during Save:", e);
+          alert("Gagal terhubung ke Google Sheet. Cek koneksi internet Anda.");
       }
   }
 

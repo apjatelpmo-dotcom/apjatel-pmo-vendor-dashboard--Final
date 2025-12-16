@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Project, ProjectOperator, MaterialStatus, WorkStatus, OperatorCustomItem, JointSurveyStatus } from '../types';
 import { X, Save, Building2, Ruler, Box, Cable, Zap, FileText, Activity, Plus, Trash2, List, ClipboardCheck, Calendar, Clock } from 'lucide-react';
+import Toast, { ToastType } from './Toast';
 
 interface OperatorDetailModalProps {
   project: Project;
@@ -21,6 +22,8 @@ interface UIListItem {
 }
 
 const OperatorDetailModal: React.FC<OperatorDetailModalProps> = ({ project, operator, onClose, onSave }) => {
+  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
+
   // 1. Basic Operator Identity
   const [operatorName, setOperatorName] = useState(operator?.name || '');
   
@@ -94,6 +97,7 @@ const OperatorDetailModal: React.FC<OperatorDetailModalProps> = ({ project, oper
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setToast({ message: "Menyimpan data operator...", type: 'loading' });
     
     // Construct the object back
     const newOperatorData: any = {
@@ -144,12 +148,17 @@ const OperatorDetailModal: React.FC<OperatorDetailModalProps> = ({ project, oper
         updatedProject.operators = [...updatedProject.operators, (newOperatorData as ProjectOperator)];
     }
 
-    onSave(updatedProject);
-    onClose();
+    // Simulate async save delay
+    setTimeout(() => {
+        onSave(updatedProject);
+        setToast({ message: "Data operator tersimpan!", type: 'success' });
+        setTimeout(onClose, 1000);
+    }, 500);
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
         <div className="relative bg-white rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
