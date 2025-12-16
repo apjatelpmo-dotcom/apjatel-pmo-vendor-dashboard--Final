@@ -2,7 +2,7 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwLRxxnblavAJf5_eCW2TMx83EpoUmKNQphSWm5w9BNpIaFK_xKmZBLax3bfzVWtvVV/exec';
 
 // --- MOCK DATA ---
 const MOCK_VENDORS: Vendor[] = [
