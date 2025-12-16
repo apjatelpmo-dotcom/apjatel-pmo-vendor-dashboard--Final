@@ -49,7 +49,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
       <div className="shrink-0">{getIcon()}</div>
       <div className="flex flex-col">
           <span className="font-semibold text-sm">
-              {type === 'loading' ? 'Memproses...' : (type === 'success' ? 'Berhasil!' : 'Gagal')}
+              {type === 'loading' ? 'Memproses...' : (type === 'success' ? 'Berhasil' : 'Gagal')}
           </span>
           <span className="text-xs opacity-90">{message}</span>
       </div>

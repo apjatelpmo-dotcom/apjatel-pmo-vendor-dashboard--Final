@@ -2,7 +2,7 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// PENTING: GANTI URL INI DENGAN URL HASIL DEPLOYMENT TERBARU ANDA
+// URL DEPLOYMENT BARU DARI USER
 const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
 
 // --- MOCK DATA (FALLBACK) ---
@@ -74,11 +74,9 @@ class SheetService {
 
     } catch (error) {
         console.warn("Connection Failed, using offline data.", error);
-        
         // Load mock data agar tidak kosong saat offline
         if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
         if (this.vendors.length === 0) this.vendors = MOCK_VENDORS;
-        
         this.isInitialized = true;
         return { success: false, message: 'Offline Mode (Connection Error)' };
     }
@@ -94,11 +92,10 @@ class SheetService {
     });
   }
 
-  // --- FILE UPLOAD (Updated for new GAS) ---
+  // --- FILE UPLOAD ---
   async uploadFile(file: File): Promise<string> {
     try {
         const base64Data = await this.fileToBase64(file);
-        // Hapus prefix data:image/png;base64, ...
         const content = base64Data.split(',')[1];
         
         const payload = {
@@ -107,10 +104,9 @@ class SheetService {
             mimeType: file.type
         };
 
-        // Kirim request ke GAS dengan action=upload
         const response = await fetch(`${API_URL}?action=upload`, {
             method: 'POST',
-            redirect: 'follow', // Penting untuk GAS
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
@@ -119,7 +115,6 @@ class SheetService {
         if (result.success && result.url) {
             return result.url;
         } else {
-            console.warn("Upload failed from server:", result.message);
             throw new Error(result.message || "Upload failed");
         }
     } catch (e) {
@@ -145,7 +140,6 @@ class SheetService {
           }
       } catch (e) {
           console.error("Login Network Error:", e);
-          // Fallback ke Mock jika network error, khusus admin
           if (id === 'admin' && password === 'admin') {
              return { success: true, user: MOCK_VENDORS[0] };
           }
@@ -199,7 +193,6 @@ class SheetService {
 
   private async fetchAllProjects(): Promise<Project[]> {
       try {
-          // Tambahkan timestamp t untuk menghindari caching agresif browser
           const response = await fetch(`${API_URL}?action=read&t=${Date.now()}`, { 
               method: 'GET',
               redirect: 'follow'
@@ -210,11 +203,9 @@ class SheetService {
           const rawData = await response.json();
           
           if (Array.isArray(rawData)) {
-              // Validasi dan normalisasi data dari Sheet
               this.projects = rawData.map((item: any) => {
                  return {
                      ...item,
-                     // Pastikan array selalu ada (tidak undefined) untuk mencegah crash di UI
                      workItems: Array.isArray(item.workItems) ? item.workItems : [],
                      operators: Array.isArray(item.operators) ? item.operators : [],
                      requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
@@ -223,41 +214,35 @@ class SheetService {
                      abdFiles: Array.isArray(item.abdFiles) ? item.abdFiles : []
                  } as Project;
               });
-              
-              console.log("Projects Fetched successfully:", this.projects.length);
               return this.projects;
           } else {
               return [];
           }
       } catch (e) {
-          console.warn("Fetch Projects Failed, showing cached/mock data.", e);
+          console.warn("Fetch Projects Failed, showing mock/cached.", e);
           if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
           return this.projects;
       }
   }
 
   private async sendData(project: Project): Promise<void> {
-      console.log("Sending project data...", project.id);
-      
       try {
+          // PENTING: Stringify di sini agar fetch mengirim body sebagai raw JSON string
+          // Google Apps Script akan membacanya via e.postData.contents dan menyimpannya di kolom json_data
           const response = await fetch(`${API_URL}?action=save`, {
             method: 'POST',
             redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-            // Kita kirim full object. Script GAS akan otomatis menyimpannya ke kolom json_data
             body: JSON.stringify(project) 
           });
           
           const result = await response.json();
-          if (result.success) {
-            console.log("Data successfully saved to cloud.", result);
-          } else {
-            console.error("Sheet Error:", result.message);
-            alert(`Gagal menyimpan: ${result.message}`);
+          if (!result.success) {
+            throw new Error(result.message);
           }
       } catch (e) {
-          console.error("Network/CORS Error during Save:", e);
-          alert("Gagal terhubung ke Google Sheet. Cek koneksi internet Anda.");
+          console.error("Save Data Error:", e);
+          throw e; // Throw agar komponen bisa menangkap error dan menampilkan Toast
       }
   }
 
