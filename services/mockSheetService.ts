@@ -2,87 +2,33 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// PENTING: GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT GOOGLE SCRIPT TERBARU ANDA
 const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
 
-// --- MOCK DATA (FALLBACK) ---
+// --- MOCK DATA ---
 const MOCK_VENDORS: Vendor[] = [
     { id: 'admin', name: 'Administrator', email: 'admin@apjatel.co.id' },
     { id: 'v001', name: 'PT. Vendor Jaya Abadi', email: 'info@jayaabadi.com' },
     { id: 'v002', name: 'PT. Sinergi Optik', email: 'contact@sinergioptik.id' },
-    { id: 'ant', name: 'PT. Ant (Vendor)', email: 'ant@vendor.com' } // Added based on your screenshot data
+    { id: 'ant', name: 'PT. Ant (Vendor)', email: 'ant@vendor.com' }
 ];
 
-const MOCK_PROJECTS: Project[] = [
-    {
-        id: 'p001',
-        vendorId: 'v001',
-        vendorAppointmentNumber: 'SPK/001/XI/2024',
-        name: 'Relokasi Kabel FO Jl. Jendral Sudirman',
-        location: 'Jakarta Pusat',
-        status: ProjectStatus.IN_PROGRESS,
-        progress: 65,
-        budget: 450000000,
-        spent: 215000000,
-        startDate: '2024-01-15',
-        endDate: '2024-04-15',
-        remarks: 'Menunggu izin galian crossing',
-        description: 'Relokasi utilitas terdampak proyek MRT Fase 2.',
-        lengthMeter: 3500,
-        initiator: 'MRT Jakarta',
-        relocationReason: 'Proyek Strategis Nasional',
-        category: ProjectCategory.RELOCATION,
-        progressMeter: 2200,
-        requiredDocuments: [
-            { name: 'Surat Perintah Relokasi', hasFile: true, fileName: 'Surat_Perintah_001.pdf', url: '#' },
-            { name: 'Surat Penunjukkan Vendor (SPK)', hasFile: true, fileName: 'SPK_V001.pdf', url: '#' },
-            { name: 'Berita Acara Survey Dinas', hasFile: false },
-            { name: 'Price List Apjatel', hasFile: true, fileName: 'RAB_Final.xlsx', url: '#' }
-        ],
-        workItems: [
-            { id: 'w1', name: 'Galian Manual', weight: 30, unit: 'm', planQty: 3500, actualQty: 3500, photos: [], remarks: 'Selesai' },
-            { id: 'w2', name: 'Pemasangan HDPE', weight: 30, unit: 'm', planQty: 3500, actualQty: 2000, photos: [], remarks: 'On Progress' },
-            { id: 'w3', name: 'Handhole', weight: 40, unit: 'unit', planQty: 10, actualQty: 5, photos: [], remarks: 'Parsial' }
-        ],
-        operators: [
-            {
-                id: 'op1', name: 'Telkomsel', participationLength: 3500, accessLength: 100, crossingLength: 50, hhSharedQty: 5, hhPrivateQty: 0,
-                statusMaterial: MaterialStatus.ON_SITE, statusPulling: WorkStatus.IN_PROGRESS, statusCutOver: WorkStatus.NOT_STARTED,
-                jointSurveyStatus: JointSurveyStatus.DONE, jointSurveyDate: '2024-01-20', adminPOStatus: AdminPOStatus.ISSUED, adminDocStatus: AdminDocStatus.APPROVED
-            },
-            {
-                id: 'op2', name: 'Indosat Ooredoo', participationLength: 3500, accessLength: 150, crossingLength: 50, hhSharedQty: 5, hhPrivateQty: 1,
-                statusMaterial: MaterialStatus.NOT_YET, statusPulling: WorkStatus.NOT_STARTED, statusCutOver: WorkStatus.NOT_STARTED,
-                jointSurveyStatus: JointSurveyStatus.SCHEDULED, jointSurveyDate: '2024-02-10', adminPOStatus: AdminPOStatus.PROCESSING, adminDocStatus: AdminDocStatus.SUBMITTED
-            }
-        ]
-    }
-];
+const MOCK_PROJECTS: Project[] = []; // Kosongkan mock agar kita fokus data live
 
 class SheetService {
   private projects: Project[] = [];
   private vendors: Vendor[] = []; 
-  private isInitialized = false;
   
   async initializeConnection(): Promise<{ success: boolean; message: string }> {
     try {
-        console.log("Connecting to Google Sheet Database...");
         await this.fetchAllProjects();
         await this.fetchUsers();
-        
-        this.isInitialized = true;
-        return { success: true, message: 'Connected to Database (Online)' };
-
+        return { success: true, message: 'Connected to Database' };
     } catch (error) {
-        console.warn("Connection Failed, using offline data.", error);
-        if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
-        if (this.vendors.length === 0) this.vendors = MOCK_VENDORS;
-        this.isInitialized = true;
-        return { success: false, message: 'Offline Mode (Connection Error)' };
+        return { success: false, message: 'Offline Mode' };
     }
   }
 
-  // --- HELPER: Base64 Conversion ---
+  // --- HELPER: Base64 ---
   private fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -92,70 +38,56 @@ class SheetService {
     });
   }
 
-  // --- FILE UPLOAD ---
+  // --- UPLOAD ---
   async uploadFile(file: File): Promise<string> {
     try {
         const base64Data = await this.fileToBase64(file);
         const content = base64Data.split(',')[1];
         
-        const payload = {
-            data: content,
-            filename: file.name,
-            mimeType: file.type
-        };
-
         const response = await fetch(`${API_URL}?action=upload`, {
             method: 'POST',
             redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                data: content,
+                filename: file.name,
+                mimeType: file.type
+            })
         });
 
         const result = await response.json();
-        if (result.success && result.url) {
-            return result.url;
-        } else {
-            throw new Error(result.message || "Upload failed");
-        }
+        if (result.success && result.url) return result.url;
+        throw new Error(result.message || "Upload failed");
     } catch (e) {
         console.error("Upload Error:", e);
-        throw new Error("Gagal mengupload file ke Google Drive.");
+        throw new Error("Gagal upload file.");
     }
   }
 
-  // --- AUTHENTICATION ---
+  // --- AUTH ---
   async login(id: string, password: string): Promise<{ success: boolean; user?: Vendor; message?: string }> {
       try {
           const response = await fetch(`${API_URL}?action=login`, {
               method: 'POST',
-              redirect: 'follow',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify({ id, password })
           });
           const result = await response.json();
-          if (result.success) {
-              return { success: true, user: result.user };
-          } else {
-              return { success: false, message: result.message };
-          }
+          return result;
       } catch (e) {
-          console.error("Login Network Error:", e);
-          if (id === 'admin' && password === 'admin') {
-             return { success: true, user: MOCK_VENDORS[0] };
-          }
-          return { success: false, message: "Network Error: Gagal menghubungi server." };
+          if (id === 'admin' && password === 'admin') return { success: true, user: MOCK_VENDORS[0] };
+          return { success: false, message: "Network Error" };
       }
   }
 
   async fetchUsers(): Promise<Vendor[]> {
       try {
-          const response = await fetch(`${API_URL}?action=getUsers`, { redirect: 'follow' });
+          const response = await fetch(`${API_URL}?action=getUsers`);
           const data = await response.json();
           if (Array.isArray(data)) {
               this.vendors = data;
               return data;
           }
-          return [];
+          return MOCK_VENDORS;
       } catch (e) {
           return this.vendors.length > 0 ? this.vendors : MOCK_VENDORS;
       }
@@ -167,114 +99,101 @@ class SheetService {
 
   async addUser(user: Vendor & { password?: string }): Promise<void> {
       this.vendors.push(user);
-      try {
-          await fetch(`${API_URL}?action=saveUser`, {
-              method: 'POST',
-              redirect: 'follow',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(user)
-          });
-      } catch(e) { console.error("Add User Error", e); }
+      await fetch(`${API_URL}?action=saveUser`, { method: 'POST', body: JSON.stringify(user) });
   }
 
   async deleteUser(userId: string): Promise<void> {
       this.vendors = this.vendors.filter(v => v.id !== userId);
-      try {
-          await fetch(`${API_URL}?action=deleteUser`, {
-              method: 'POST',
-              redirect: 'follow',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify({ id: userId })
-          });
-      } catch(e) { console.error("Delete User Error", e); }
+      await fetch(`${API_URL}?action=deleteUser`, { method: 'POST', body: JSON.stringify({ id: userId }) });
   }
 
-  // --- PROJECT METHODS ---
+  // --- PROJECT CRUD (INTI PERBAIKAN) ---
 
+  // 1. READ: Logic Pembersihan Data yang Agresif
   private async fetchAllProjects(): Promise<Project[]> {
       try {
-          const response = await fetch(`${API_URL}?action=read&t=${Date.now()}`, { 
-              method: 'GET',
-              redirect: 'follow'
-          });
-          
-          if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+          const response = await fetch(`${API_URL}?action=read&t=${Date.now()}`);
+          if (!response.ok) throw new Error("Network response was not ok");
           
           const rawData = await response.json();
           
           if (Array.isArray(rawData)) {
-              // --- AGGRESSIVE DATA RECOVERY & SANITIZATION ---
               this.projects = rawData.map((item: any) => {
-                 let safeVendorId = item.vendorId;
-                 let recoveredData: any = {};
+                 // RECOVERY LOGIC: Jika vendorId rusak (berisi JSON), kita bongkar
+                 let cleanVendorId = item.vendorId;
+                 let recoveredDetails = {};
 
-                 // LOGIC: Check if vendorId contains JSON garbage
-                 if (typeof safeVendorId === 'string' && safeVendorId.trim().startsWith('{')) {
+                 if (typeof cleanVendorId === 'string' && cleanVendorId.trim().startsWith('{')) {
                      try {
-                         // Attempt to PARSE the garbage to find the real gold inside
-                         const parsedGarbage = JSON.parse(safeVendorId);
-                         
-                         // If the parsed garbage has a 'vendorId' field, USE IT!
-                         if (parsedGarbage.vendorId) {
-                             safeVendorId = parsedGarbage.vendorId;
-                         } else {
-                             safeVendorId = 'unknown';
-                         }
-
-                         // Also recover other fields if missing in the main object but present in the JSON blob
-                         recoveredData = parsedGarbage;
-                     } catch (e) {
-                         console.error("Failed to recover corrupted data", e);
-                         safeVendorId = 'corrupted';
+                         const parsed = JSON.parse(cleanVendorId);
+                         cleanVendorId = parsed.vendorId || 'unknown'; // Ambil ID asli dari dalam sampah
+                         recoveredDetails = parsed; // Selamatkan data lain yang mungkin hilang
+                     } catch(e) { 
+                         cleanVendorId = 'corrupt_data'; 
                      }
-                 } else if (typeof safeVendorId === 'object' && safeVendorId !== null) {
-                     // If it somehow came as an object already
-                     if (safeVendorId.vendorId) safeVendorId = safeVendorId.vendorId;
                  }
 
-                 // Final Cleanup: ensure it's a short string
-                 if (typeof safeVendorId !== 'string' || safeVendorId.length > 50) {
-                     safeVendorId = 'unknown';
+                 // Pastikan VendorID bersih (hanya string pendek)
+                 if (typeof cleanVendorId !== 'string' || cleanVendorId.length > 20) {
+                     cleanVendorId = 'unknown'; 
                  }
 
+                 // Merge data sheet (item), data recovery (recoveredDetails), dan default arrays
+                 const merged = { ...recoveredDetails, ...item };
+                 
                  return {
-                     ...item,
-                     ...recoveredData, // Merge recovered data (e.g. name, location) if parent was empty
-                     vendorId: safeVendorId, // The clean ID (e.g. 'ant', 'v001')
+                     ...merged,
+                     id: String(item.id),
+                     vendorId: String(cleanVendorId), // INI KUNCINYA AGAR FILTER DASHBOARD JALAN
                      
-                     // Ensure arrays exist
-                     workItems: Array.isArray(item.workItems) ? item.workItems : [],
-                     operators: Array.isArray(item.operators) ? item.operators : [],
-                     requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
-                     scheduleItems: Array.isArray(item.scheduleItems) ? item.scheduleItems : [],
-                     handholeAssignments: Array.isArray(item.handholeAssignments) ? item.handholeAssignments : [],
-                     abdFiles: Array.isArray(item.abdFiles) ? item.abdFiles : []
+                     // Pastikan Array Tidak Null
+                     workItems: Array.isArray(merged.workItems) ? merged.workItems : [],
+                     operators: Array.isArray(merged.operators) ? merged.operators : [],
+                     requiredDocuments: Array.isArray(merged.requiredDocuments) ? merged.requiredDocuments : [],
+                     scheduleItems: Array.isArray(merged.scheduleItems) ? merged.scheduleItems : [],
+                     handholeAssignments: Array.isArray(merged.handholeAssignments) ? merged.handholeAssignments : [],
+                     abdFiles: Array.isArray(merged.abdFiles) ? merged.abdFiles : []
                  } as Project;
               });
               return this.projects;
-          } else {
-              return [];
           }
+          return [];
       } catch (e) {
-          console.warn("Fetch Projects Failed, showing mock/cached.", e);
-          if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
+          console.warn("Fetch failed, using cache", e);
           return this.projects;
       }
   }
 
+  // 2. SAVE: Logic Pemisahan Kolom vs JSON (Agar Sheet Rapi)
   private async sendData(project: Project): Promise<void> {
       try {
+          // KITA PISAHKAN DATA HEADER (UNTUK KOLOM) DENGAN DATA DETAIL (UNTUK JSON)
+          // Ini mencegah kolom 'vendorId' terisi object raksasa.
+          
+          const payload = {
+              // Header Data (Masuk ke Kolom A-F di Sheet)
+              id: project.id,
+              vendorId: project.vendorId, // Pastikan ini string pendek!
+              name: project.name,
+              location: project.location,
+              status: project.status,
+              progress: project.progress,
+              
+              // Full Data (Masuk ke Kolom H / json_data sebagai backup lengkap)
+              // Google Script saya akan memprioritaskan ini saat READ, tapi kolom Header tetap aman.
+              json_data: JSON.stringify(project) 
+          };
+
           const response = await fetch(`${API_URL}?action=save`, {
             method: 'POST',
             redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-            body: JSON.stringify(project) 
+            body: JSON.stringify(payload) // Kirim payload yang sudah dirapikan
           });
           
           const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.message);
-          }
+          if (!result.success) throw new Error(result.message);
+
       } catch (e) {
           console.error("Save Data Error:", e);
           throw e; 
@@ -282,11 +201,13 @@ class SheetService {
   }
 
   async getProjects(vendorId: string): Promise<Project[]> {
+    // Selalu fetch baru untuk memastikan sinkron
     const freshData = await this.fetchAllProjects();
+    
     if (vendorId === 'admin') {
       return freshData;
     }
-    // With data recovery, 'ant' === 'ant' should now match!
+    // Filter sekarang aman karena vendorId sudah dibersihkan di fetchAllProjects
     return freshData.filter(p => p.vendorId === vendorId);
   }
 
