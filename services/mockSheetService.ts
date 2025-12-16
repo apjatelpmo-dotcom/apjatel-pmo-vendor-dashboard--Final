@@ -2,7 +2,7 @@
 import { Project, Vendor, ProjectStatus, ProjectCategory, MaterialStatus, WorkStatus, JointSurveyStatus, AdminDocStatus, AdminPOStatus } from '../types';
 
 // --- LIVE CONFIGURATION ---
-// URL DEPLOYMENT BARU DARI USER
+// PENTING: Pastikan URL ini adalah versi 'exec' dari Deployment TERBARU Anda.
 const API_URL = 'https://script.google.com/macros/s/AKfycby5Ox6AtrTFs2npQSwWWoXTyaFIdwnSbtgGiFTp5-qSFZVJqtm1mcqIDUhTfIXnhF00/exec';
 
 // --- MOCK DATA (FALLBACK) ---
@@ -74,7 +74,6 @@ class SheetService {
 
     } catch (error) {
         console.warn("Connection Failed, using offline data.", error);
-        // Load mock data agar tidak kosong saat offline
         if (this.projects.length === 0) this.projects = MOCK_PROJECTS;
         if (this.vendors.length === 0) this.vendors = MOCK_VENDORS;
         this.isInitialized = true;
@@ -203,9 +202,20 @@ class SheetService {
           const rawData = await response.json();
           
           if (Array.isArray(rawData)) {
+              // --- DATA SANITIZATION LOGIC ---
               this.projects = rawData.map((item: any) => {
+                 // Fix VendorId corruption (seen in screenshot)
+                 let safeVendorId = item.vendorId;
+                 if (typeof safeVendorId === 'string' && (safeVendorId.startsWith('{') || safeVendorId.length > 50)) {
+                     // If vendorId looks like JSON, it's corrupted. Try to recover or set default.
+                     // Often the real vendorId is lost, so we default to something safe or try to extract if hidden.
+                     // For now, clean it so it doesn't break UI.
+                     safeVendorId = 'unknown_vendor'; 
+                 }
+
                  return {
                      ...item,
+                     vendorId: safeVendorId || 'unknown_vendor',
                      workItems: Array.isArray(item.workItems) ? item.workItems : [],
                      operators: Array.isArray(item.operators) ? item.operators : [],
                      requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
@@ -227,8 +237,6 @@ class SheetService {
 
   private async sendData(project: Project): Promise<void> {
       try {
-          // PENTING: Stringify di sini agar fetch mengirim body sebagai raw JSON string
-          // Google Apps Script akan membacanya via e.postData.contents dan menyimpannya di kolom json_data
           const response = await fetch(`${API_URL}?action=save`, {
             method: 'POST',
             redirect: 'follow',
@@ -242,7 +250,7 @@ class SheetService {
           }
       } catch (e) {
           console.error("Save Data Error:", e);
-          throw e; // Throw agar komponen bisa menangkap error dan menampilkan Toast
+          throw e; 
       }
   }
 
