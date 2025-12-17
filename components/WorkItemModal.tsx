@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Project, WorkItem } from '../types';
 import { X, Save, Plus, Trash2, Camera, Loader2 } from 'lucide-react';
 import { sheetService } from '../services/mockSheetService';
-import Toast, { ToastType } from './Toast';
 
 interface WorkItemModalProps {
   project: Project;
@@ -15,7 +14,6 @@ const WorkItemModal: React.FC<WorkItemModalProps> = ({ project, onClose, onUpdat
   const [items, setItems] = useState<WorkItem[]>([]);
   const [description, setDescription] = useState(project.description || '');
   const [uploadingState, setUploadingState] = useState<{itemIdx: number, isUploading: boolean}>({itemIdx: -1, isUploading: false});
-  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
 
   useEffect(() => {
     if (project.workItems && project.workItems.length > 0) {
@@ -71,15 +69,13 @@ const WorkItemModal: React.FC<WorkItemModalProps> = ({ project, onClose, onUpdat
     const file = e.target.files?.[0];
     if (file) {
         setUploadingState({ itemIdx: index, isUploading: true });
-        setToast({ message: "Mengupload foto...", type: "loading" });
         try {
             const photoUrl = await sheetService.uploadFile(file);
             const newItems = [...items];
             newItems[index].photos.push(photoUrl);
             setItems(newItems);
-            setToast({ message: "Foto berhasil diupload", type: "success" });
         } catch (error) {
-            setToast({ message: "Gagal upload foto", type: "error" });
+            alert("Gagal mengupload foto.");
         } finally {
             setUploadingState({ itemIdx: -1, isUploading: false });
         }
@@ -94,29 +90,21 @@ const WorkItemModal: React.FC<WorkItemModalProps> = ({ project, onClose, onUpdat
 
   const handleSave = () => {
     if (uploadingState.isUploading) {
-        setToast({ message: "Tunggu proses upload selesai", type: "error" });
+        alert("Tunggu proses upload selesai.");
         return;
     }
-    
-    setToast({ message: "Menyimpan update progress...", type: "loading" });
-    
     const updatedProject: Project = {
         ...project,
         description: description,
         workItems: items,
         progress: parseFloat(calculatedProjectProgress.toFixed(1))
     };
-    
-    setTimeout(() => {
-        onUpdate(updatedProject);
-        setToast({ message: "Update berhasil disimpan!", type: "success" });
-        setTimeout(onClose, 1000);
-    }, 500);
+    onUpdate(updatedProject);
+    onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
         <div className="relative bg-white rounded-lg w-full max-w-7xl max-h-[90vh] flex flex-col shadow-xl">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-lg">

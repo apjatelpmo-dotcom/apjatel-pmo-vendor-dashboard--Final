@@ -19,6 +19,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
 
   const isAdmin = currentUser.id === 'admin';
 
+  // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, itemsPerPage]);
@@ -30,6 +31,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
     (p.initiator && p.initiator.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Pagination Logic
   const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -52,15 +54,6 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
   };
 
   const getVendorName = (vendorId: string) => {
-    // Safety check 1: Null/Undefined
-    if (!vendorId) return 'Unknown';
-    
-    // Safety check 2: Too long or JSON-like (UI Protection)
-    if (vendorId.length > 30 || vendorId.includes('{') || vendorId.includes('"')) {
-        return 'Data Error'; 
-    }
-    
-    // Normal lookup
     return vendors.find(v => v.id === vendorId)?.name || vendorId;
   };
 
@@ -94,6 +87,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
 
   return (
     <div className="space-y-6 flex flex-col h-[calc(100vh-140px)]"> 
+       {/* Header Section */}
        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <h2 className="text-2xl font-bold text-gray-900">Daftar Project</h2>
         <div className="flex gap-2">
@@ -120,6 +114,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden">
+        {/* Toolbar */}
         <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
             <div className="relative max-w-md w-full sm:w-80">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -150,6 +145,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
             </div>
         </div>
 
+        {/* Table Container with Overflow for Sticky Header */}
         <div className="flex-1 overflow-auto relative" id="project-list-table">
             <table className="w-full text-sm text-left text-gray-500">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10 shadow-sm">
@@ -179,7 +175,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
                                     {indexOfFirstItem + index + 1}
                                 </td>
                                 {isAdmin && (
-                                    <td className="px-6 py-4 text-brand-600 font-medium max-w-[150px] truncate" title={getVendorName(project.vendorId)}>
+                                    <td className="px-6 py-4 text-brand-600 font-medium">
                                         {getVendorName(project.vendorId)}
                                     </td>
                                 )}
@@ -273,6 +269,7 @@ const ProjectListView: React.FC<ProjectListViewProps> = ({ projects, onAddClick,
             </table>
         </div>
 
+        {/* Footer / Pagination */}
         <div className="p-4 border-t border-gray-200 bg-white flex items-center justify-between shrink-0">
             <div className="text-sm text-gray-500 hidden sm:block">
                 Menampilkan <span className="font-medium text-gray-900">{filteredProjects.length > 0 ? indexOfFirstItem + 1 : 0}</span> sampai <span className="font-medium text-gray-900">{Math.min(indexOfLastItem, filteredProjects.length)}</span> dari <span className="font-medium text-gray-900">{filteredProjects.length}</span> data

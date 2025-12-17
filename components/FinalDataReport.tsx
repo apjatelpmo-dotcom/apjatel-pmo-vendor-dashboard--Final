@@ -4,7 +4,6 @@ import { Project, ProjectOperator, FOCableType, HandholeAssignment, ABDFile, Mat
 import { Save, Plus, Trash2, MapPin, Ruler, Server, Database, CloudUpload, FileCheck, CheckSquare, Square, FileText, X, Loader2, ExternalLink } from 'lucide-react';
 import { exportToCSV } from '../services/exportService';
 import { sheetService } from '../services/mockSheetService';
-import Toast, { ToastType } from './Toast';
 
 interface FinalDataReportProps {
     project: Project;
@@ -16,7 +15,6 @@ const CABLE_TYPES: FOCableType[] = ['FO 288', 'FO 144', 'FO 96', 'FO 48', 'FO 24
 const FinalDataReport: React.FC<FinalDataReportProps> = ({ project, onUpdate }) => {
     const [localHandholes, setLocalHandholes] = useState<HandholeAssignment[]>(project.handholeAssignments || []);
     const [isUploading, setIsUploading] = useState(false);
-    const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
 
     const handleOperatorChange = (operatorId: string, field: keyof ProjectOperator, value: any) => {
         const updatedOperators = project.operators.map(op => op.id === operatorId ? { ...op, [field]: value } : op);
@@ -53,11 +51,8 @@ const FinalDataReport: React.FC<FinalDataReportProps> = ({ project, onUpdate }) 
     };
 
     const handleSaveHandholes = () => {
-        setToast({ message: "Menyimpan data handhole...", type: "loading" });
         onUpdate({ ...project, handholeAssignments: localHandholes });
-        setTimeout(() => {
-            setToast({ message: "Data Handhole berhasil disimpan!", type: "success" });
-        }, 500);
+        alert('Data Handhole berhasil disimpan!');
     };
 
     // ABD Upload Logic with Drive
@@ -65,7 +60,6 @@ const FinalDataReport: React.FC<FinalDataReportProps> = ({ project, onUpdate }) 
         const file = e.target.files?.[0];
         if (file) {
             setIsUploading(true);
-            setToast({ message: `Mengupload ${file.name}...`, type: "loading" });
             try {
                 const driveUrl = await sheetService.uploadFile(file);
                 const newFile: ABDFile = {
@@ -76,9 +70,8 @@ const FinalDataReport: React.FC<FinalDataReportProps> = ({ project, onUpdate }) 
                 };
                 const currentFiles = project.abdFiles || [];
                 onUpdate({ ...project, abdFiles: [...currentFiles, newFile] });
-                setToast({ message: "File berhasil diupload!", type: "success" });
             } catch (err) {
-                setToast({ message: "Gagal upload file ABD.", type: "error" });
+                alert("Gagal upload file ABD.");
             } finally {
                 setIsUploading(false);
             }
@@ -100,8 +93,7 @@ const FinalDataReport: React.FC<FinalDataReportProps> = ({ project, onUpdate }) 
     };
 
     return (
-        <div className="space-y-8 bg-gray-50/50 p-6 rounded-xl border border-gray-200 relative">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        <div className="space-y-8 bg-gray-50/50 p-6 rounded-xl border border-gray-200">
             <div className="flex justify-between items-center mb-2">
                  <div>
                     <h3 className="text-lg font-bold text-gray-900">Data Akhir (Final Report)</h3>

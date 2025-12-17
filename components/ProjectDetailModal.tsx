@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
-import { Project, ProjectStatus } from '../types';
-import { X, FileText, Edit2, Save, Trash2, Plus, CloudUpload, CheckCircle2, MapPin, Hash, Ruler, Loader2, ExternalLink } from 'lucide-react';
+import { Project, ProjectStatus, ProjectDocumentStatus } from '../types';
+import { X, Calendar, MapPin, Hash, FileText, Download, Edit2, Save, Trash2, Plus, CloudUpload, CheckCircle2, MessageSquare, Ruler, Info, CalendarClock, Loader2, ExternalLink } from 'lucide-react';
 import { sheetService } from '../services/mockSheetService';
-import Toast, { ToastType } from './Toast';
 
 interface ProjectDetailModalProps {
   project: Project;
@@ -15,7 +14,6 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
   const [isEditing, setIsEditing] = useState(false);
   const [editedProject, setEditedProject] = useState<Project>(project);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-  const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -34,34 +32,29 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
 
   const handleSave = () => {
     if (uploadingIndex !== null) {
-        setToast({ message: "Tunggu upload selesai.", type: "error" });
+        alert("Harap tunggu proses upload selesai.");
         return;
     }
-    setToast({ message: "Menyimpan perubahan...", type: "loading" });
     onUpdate(editedProject);
-    setTimeout(() => {
-         setToast({ message: "Berhasil disimpan!", type: "success" });
-         setIsEditing(false);
-    }, 500);
+    setIsEditing(false);
   };
 
-  /* Document Logic */
+  /* Document Logic with Drive Upload */
   const handleFileUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
         setUploadingIndex(index);
-        setToast({ message: "Mengupload...", type: "loading" });
         try {
             const driveUrl = await sheetService.uploadFile(file);
+            
             const newDocs = [...editedProject.requiredDocuments];
             newDocs[index].hasFile = true;
             newDocs[index].fileName = file.name;
             newDocs[index].url = driveUrl;
             
             setEditedProject(prev => ({...prev, requiredDocuments: newDocs}));
-            setToast({ message: "Upload berhasil", type: "success" });
         } catch (error) {
-            setToast({ message: "Gagal upload.", type: "error" });
+            alert("Upload gagal.");
         } finally {
             setUploadingIndex(null);
         }
@@ -97,7 +90,6 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
 
       <div className="relative bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
@@ -140,6 +132,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
                 
                 {/* Left Column: Details */}
                 <div className="lg:col-span-2 space-y-8">
+                    {/* Status & Location Section */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50 rounded-xl border border-gray-100">
                          <div>
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</label>
@@ -198,6 +191,7 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
                                                  ) : (
                                                     <p className="text-sm font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</p>
                                                  )}
+                                                
                                                 {doc.hasFile ? (
                                                     <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 truncate mt-0.5 hover:underline flex items-center gap-1">
                                                         {doc.fileName} <ExternalLink size={10} />
@@ -208,14 +202,17 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, onClos
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Actions */}
                                     <div className="flex items-center justify-end gap-2 mt-1 border-t border-gray-100 pt-2">
                                         {isEditing && (
                                             <>
                                                 <input type="file" id={`modal-file-${idx}`} className="hidden" onChange={(e) => handleFileUpload(idx, e)} disabled={uploadingIndex !== null} />
                                                 <label htmlFor={`modal-file-${idx}`} className={`cursor-pointer text-xs flex items-center gap-1 text-gray-600 bg-gray-100 px-2 py-1 rounded transition-colors ${uploadingIndex === idx ? 'opacity-50' : 'hover:text-brand-600 hover:bg-gray-200'}`}>
                                                     {uploadingIndex === idx ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />} 
-                                                    {uploadingIndex === idx ? 'Wait...' : (doc.hasFile ? 'Ganti' : 'Upload')}
+                                                    {uploadingIndex === idx ? 'Uploading...' : (doc.hasFile ? 'Ganti' : 'Upload')}
                                                 </label>
+                                                
                                                 {doc.hasFile && <button onClick={() => removeFile(idx)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={12} /></button>}
                                                 {doc.isCustom && <button onClick={() => removeCustomDocumentRow(idx)} className="text-red-500 p-1 hover:bg-red-50 rounded ml-1"><X size={12} /></button>}
                                             </>
