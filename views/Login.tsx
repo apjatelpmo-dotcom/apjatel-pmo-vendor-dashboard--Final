@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { sheetService } from '../services/mockSheetService';
 import { Vendor } from '../types';
-import { Lock, Network, User, Loader2, Info } from 'lucide-react';
+import { Lock, Network, User, Loader2 } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (vendor: Vendor) => void;
@@ -18,7 +18,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   useEffect(() => {
       // Initial check
       sheetService.initializeConnection().then(res => {
-          setDbStatus(res.success ? 'System Online' : 'System Offline (Mode Demo)');
+          setDbStatus(res.success ? 'System Online' : 'System Offline (Check Internet)');
       });
   }, []);
 
@@ -53,20 +53,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <Network size={36} />
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">APJATEL</h1>
-            <p className="text-sm font-medium text-brand-600 mt-1">PMO Vendor Dashboard</p>
+            <p className="text-sm font-medium text-brand-600 mt-1">PMO Dashboard Login</p>
             <div className="flex items-center gap-2 mt-4 px-3 py-1 bg-slate-100 rounded-full">
-                <div className={`w-2 h-2 rounded-full ${dbStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${dbStatus.includes('Online') ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="text-[10px] text-gray-500 font-medium">{dbStatus}</span>
-            </div>
-        </div>
-
-        {/* Demo Hint */}
-        <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2">
-            <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
-            <div className="text-xs text-blue-800">
-                <strong>Akses Demo / Testing:</strong><br/>
-                User ID: <span className="font-mono bg-blue-100 px-1 rounded">admin</span> <br/>
-                Password: <span className="font-mono bg-blue-100 px-1 rounded">admin</span>
             </div>
         </div>
 

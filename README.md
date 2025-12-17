@@ -1,38 +1,20 @@
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-# Apjatel PMO Vendor Dashboard
+# Run and deploy your AI Studio app
 
-Dashboard Project Management Office (PMO) modern untuk monitoring vendor pelaksana APJATEL.
+This contains everything you need to run your app locally.
 
-## 🛠 Tech Stack
-*   **React + TypeScript + Vite**: Frontend Framework yang cepat.
-*   **Tailwind CSS**: Styling modern.
-*   **Google Sheets API**: Database sederhana tanpa backend server.
-*   **Gemini AI**: Analisa data otomatis.
+View your app in AI Studio: https://ai.studio/apps/drive/15jb1ZqGjhzo51X9al6e7y3u8I8wdlpQi
 
-## 🚀 Cara Edit & Update (Developer Mode)
+## Run Locally
 
-1.  Pastikan sudah install **Node.js** dan **GitHub Desktop**.
-2.  Buka folder ini di **VS Code**.
-3.  Install dependencies (hanya pertama kali):
-    ```bash
-    npm install
-    ```
-4.  Jalankan di laptop (Local):
-    ```bash
-    npm run dev
-    ```
-5.  Aplikasi jalan di `http://localhost:5173`.
+**Prerequisites:**  Node.js
 
-## 🌐 Cara Online (Automated Deployment)
 
-Project ini terhubung dengan **Netlify**.
-Setiap kali Anda melakukan **Commit & Push** ke GitHub, Netlify akan otomatis mengupdate website.
-
-### Pengaturan Netlify (Build Settings)
-Jika Anda setup manual di Netlify, gunakan setting ini:
-*   **Build Command:** `npm run build`
-*   **Publish Directory:** `dist`
-
-### Environment Variables (Di Netlify)
-Jangan lupa masukkan API Key di menu **Site Settings > Environment Variables**:
-*   `API_KEY`: (Isi dengan Google Gemini API Key Anda)
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

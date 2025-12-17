@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Project, ProjectOperator, AdminDocStatus, AdminPOStatus, Vendor } from '../types';
-import { Search, Filter, Briefcase, Plus, Edit2, Trash2, Save, X, Users, Key, UserPlus, Shield, Info, Code, FileText, Server } from 'lucide-react';
+import { Search, Filter, Briefcase, Plus, Edit2, Trash2, Save, X, Users, Key, UserPlus, Shield } from 'lucide-react';
 import { sheetService } from '../services/mockSheetService';
 
 interface AdministrationViewProps {
@@ -18,7 +18,7 @@ interface AdminItem {
 }
 
 const AdministrationView: React.FC<AdministrationViewProps> = ({ projects, onUpdateProject, currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'admin_project' | 'user_management' | 'system_info'>('admin_project');
+  const [activeTab, setActiveTab] = useState<'admin_project' | 'user_management'>('admin_project');
   
   // --- EXISTING LOGIC FOR PROJECT ADMIN ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,7 +123,7 @@ const AdministrationView: React.FC<AdministrationViewProps> = ({ projects, onUpd
             <div className="flex flex-col md:flex-row md:items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Pusat Administrasi</h2>
-                    <p className="text-sm text-gray-500">Kelola administrasi project, user akses, dan informasi sistem.</p>
+                    <p className="text-sm text-gray-500">Kelola administrasi project dan akses pengguna aplikasi.</p>
                 </div>
             </div>
 
@@ -137,20 +137,12 @@ const AdministrationView: React.FC<AdministrationViewProps> = ({ projects, onUpd
                 </button>
                 {/* Only show User Management if Admin */}
                 {(!currentUser || currentUser?.id === 'admin') && (
-                    <>
-                        <button 
-                            onClick={() => setActiveTab('user_management')}
-                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'user_management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Users size={16} /> User Management
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('system_info')}
-                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'system_info' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Info size={16} /> System Info
-                        </button>
-                    </>
+                    <button 
+                        onClick={() => setActiveTab('user_management')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'user_management' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <Users size={16} /> User Management
+                    </button>
                 )}
             </div>
        </div>
@@ -264,82 +256,6 @@ const AdministrationView: React.FC<AdministrationViewProps> = ({ projects, onUpd
                    </table>
                </div>
            </div>
-       )}
-
-       {/* --- TAB CONTENT: SYSTEM INFO --- */}
-       {activeTab === 'system_info' && (
-            <div className="space-y-6">
-                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Server size={20} className="text-blue-600"/> System Information
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <h4 className="font-bold text-gray-700 mb-2">Build Information</h4>
-                            <ul className="text-sm space-y-2 text-gray-600">
-                                <li className="flex justify-between"><span>Framework:</span> <span className="font-mono text-black">React v18.2 + Vite</span></li>
-                                <li className="flex justify-between"><span>Language:</span> <span className="font-mono text-black">TypeScript</span></li>
-                                <li className="flex justify-between"><span>Styling:</span> <span className="font-mono text-black">Tailwind CSS</span></li>
-                                <li className="flex justify-between"><span>Database:</span> <span className="font-mono text-black">Google Sheets API</span></li>
-                            </ul>
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                             <h4 className="font-bold text-gray-700 mb-2">Source Code Stats</h4>
-                             <ul className="text-sm space-y-2 text-gray-600">
-                                <li className="flex justify-between"><span>Total Modules:</span> <span className="font-mono text-black">26 Files</span></li>
-                                <li className="flex justify-between"><span>Main View:</span> <span className="font-mono text-black">DashboardView.tsx</span></li>
-                                <li className="flex justify-between"><span>Entry Point:</span> <span className="font-mono text-black">index.tsx</span></li>
-                             </ul>
-                             <div className="mt-4 p-2 bg-yellow-50 text-yellow-800 text-xs rounded border border-yellow-200">
-                                 <p className="font-bold mb-1">Cara Download Source Code:</p>
-                                 Gunakan fitur <b>"Export"</b> pada platform AI Studio atau copy file dari folder project local jika sudah di-setup.
-                             </div>
-                        </div>
-                    </div>
-                 </div>
-
-                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Code size={20} className="text-purple-600"/> File Structure Reference
-                    </h3>
-                    <div className="bg-slate-900 text-slate-300 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-<pre>{`
-/ (Root)
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── README.md  <-- Panduan Instalasi
-│
-├── src/
-│   ├── App.tsx
-│   ├── index.tsx
-│   ├── types.ts
-│   │
-│   ├── components/
-│   │   ├── Layout.tsx
-│   │   ├── DashboardCharts.tsx
-│   │   ├── ProjectDetailModal.tsx
-│   │   ├── WorkItemModal.tsx
-│   │   ├── OperatorDetailModal.tsx
-│   │   └── FinalDataReport.tsx
-│   │
-│   ├── views/
-│   │   ├── Login.tsx
-│   │   ├── DashboardView.tsx
-│   │   ├── ProjectListView.tsx
-│   │   ├── ReportView.tsx
-│   │   ├── DocumentView.tsx
-│   │   ├── BASTView.tsx
-│   │   └── AdministrationView.tsx
-│   │
-│   └── services/
-│       ├── mockSheetService.ts
-│       └── exportService.ts
-`}</pre>
-                    </div>
-                 </div>
-            </div>
        )}
 
        {/* --- MODALS --- */}
